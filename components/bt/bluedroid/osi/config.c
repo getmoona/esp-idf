@@ -437,7 +437,6 @@ bool config_save(const config_t *config, const char *filename)
         }
     }
     buf[w_cnt_total] = '\0';
-    OSI_TRACE_ERROR("%s, w_cnt_total: %d\n", __func__, w_cnt_total);
     if (w_cnt_total < CONFIG_FILE_MAX_SIZE) {
         snprintf(keyname, sizeof(CONFIG_KEY)+1, "%s%d", CONFIG_KEY, 0);
         err = nvs_set_blob(fp, keyname, buf, w_cnt_total);
