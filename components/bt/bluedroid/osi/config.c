@@ -28,7 +28,7 @@
 #include "osi/list.h"
 #include "common/bt_trace.h"
 
-#define CONFIG_FILE_MAX_SIZE             (1536)//1.5k
+#define CONFIG_FILE_MAX_SIZE             (4096)//1.5k
 #define CONFIG_FILE_DEFAULE_LENGTH       (2048)
 #define CONFIG_KEY                       "bt_cfg_key"
 typedef struct {
@@ -90,7 +90,10 @@ config_t *config_new(const char *filename)
 
     esp_err_t err;
     nvs_handle fp;
-    err = nvs_open(filename, NVS_READWRITE, &fp);
+
+    nvs_flash_init_partition("security");
+    err = nvs_open_from_partition("security", filename, NVS_READWRITE, &fp);
+
     if (err != ESP_OK) {
         if (err == ESP_ERR_NVS_NOT_INITIALIZED) {
             OSI_TRACE_ERROR("%s: NVS not initialized. "
@@ -103,6 +106,8 @@ config_t *config_new(const char *filename)
     }
 
     config_parse(fp, config);
+
+    nvs_flash_deinit_partition("security");
     nvs_close(fp);
     return config;
 }
@@ -393,7 +398,9 @@ bool config_save(const config_t *config, const char *filename)
         goto error;
     }
 
-    err = nvs_open(filename, NVS_READWRITE, &fp);
+    nvs_flash_init_partition("security");
+    err = nvs_open_from_partition("security", filename, NVS_READWRITE, &fp);
+
     if (err != ESP_OK) {
         if (err == ESP_ERR_NVS_NOT_INITIALIZED) {
             OSI_TRACE_ERROR("%s: NVS not initialized. "
@@ -407,7 +414,8 @@ bool config_save(const config_t *config, const char *filename)
     for (const list_node_t *node = list_begin(config->sections); node != list_end(config->sections); node = list_next(node)) {
         const section_t *section = (const section_t *)list_node(node);
         w_cnt = snprintf(line, 1024, "[%s]\n", section->name);
-        OSI_TRACE_DEBUG("section name: %s, w_cnt + w_cnt_total = %d\n", section->name, w_cnt + w_cnt_total);
+        OSI_TRACE_DEBUG("section name: %s, w_cnt + w_cnt_total = %d\n", section->name,
+                        w_cnt + w_cnt_total);
         memcpy(buf + w_cnt_total, line, w_cnt);
         w_cnt_total += w_cnt;
 
@@ -429,10 +437,13 @@ bool config_save(const config_t *config, const char *filename)
         }
     }
     buf[w_cnt_total] = '\0';
+    OSI_TRACE_ERROR("%s, w_cnt_total: %d\n", __func__, w_cnt_total);
     if (w_cnt_total < CONFIG_FILE_MAX_SIZE) {
         snprintf(keyname, sizeof(CONFIG_KEY)+1, "%s%d", CONFIG_KEY, 0);
         err = nvs_set_blob(fp, keyname, buf, w_cnt_total);
         if (err != ESP_OK) {
+            OSI_TRACE_ERROR("%s, err: %d\n", __func__, err);
+            nvs_flash_deinit_partition("security");
             nvs_close(fp);
             err_code |= 0x04;
             goto error;
@@ -450,6 +461,7 @@ bool config_save(const config_t *config, const char *filename)
                 OSI_TRACE_DEBUG("save keyname = %s, i = %d, %d\n", keyname, i, CONFIG_FILE_MAX_SIZE);
             }
             if (err != ESP_OK) {
+                nvs_flash_deinit_partition("security");
                 nvs_close(fp);
                 err_code |= 0x04;
                 goto error;
@@ -459,11 +471,13 @@ bool config_save(const config_t *config, const char *filename)
 
     err = nvs_commit(fp);
     if (err != ESP_OK) {
+        nvs_flash_deinit_partition("security");
         nvs_close(fp);
         err_code |= 0x08;
         goto error;
     }
 
+    nvs_flash_deinit_partition("security");
     nvs_close(fp);
     osi_free(line);
     osi_free(buf);
