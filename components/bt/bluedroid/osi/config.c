@@ -31,6 +31,7 @@
 #define CONFIG_FILE_MAX_SIZE             (4096)//1.5k
 #define CONFIG_FILE_DEFAULE_LENGTH       (2048)
 #define CONFIG_KEY                       "bt_cfg_key"
+const char *security_partition = "security";
 typedef struct {
     char *key;
     char *value;
@@ -91,8 +92,8 @@ config_t *config_new(const char *filename)
     esp_err_t err;
     nvs_handle fp;
 
-    nvs_flash_init_partition("security");
-    err = nvs_open_from_partition("security", filename, NVS_READWRITE, &fp);
+    nvs_flash_init_partition(security_partition);
+    err = nvs_open_from_partition(security_partition, filename, NVS_READWRITE, &fp);
 
     if (err != ESP_OK) {
         if (err == ESP_ERR_NVS_NOT_INITIALIZED) {
@@ -107,7 +108,7 @@ config_t *config_new(const char *filename)
 
     config_parse(fp, config);
 
-    nvs_flash_deinit_partition("security");
+    nvs_flash_deinit_partition(security_partition);
     nvs_close(fp);
     return config;
 }
@@ -398,8 +399,8 @@ bool config_save(const config_t *config, const char *filename)
         goto error;
     }
 
-    nvs_flash_init_partition("security");
-    err = nvs_open_from_partition("security", filename, NVS_READWRITE, &fp);
+    nvs_flash_init_partition(security_partition);
+    err = nvs_open_from_partition(security_partition, filename, NVS_READWRITE, &fp);
 
     if (err != ESP_OK) {
         if (err == ESP_ERR_NVS_NOT_INITIALIZED) {
@@ -442,7 +443,7 @@ bool config_save(const config_t *config, const char *filename)
         err = nvs_set_blob(fp, keyname, buf, w_cnt_total);
         if (err != ESP_OK) {
             OSI_TRACE_ERROR("%s, err: %d\n", __func__, err);
-            nvs_flash_deinit_partition("security");
+            nvs_flash_deinit_partition(security_partition);
             nvs_close(fp);
             err_code |= 0x04;
             goto error;
@@ -460,7 +461,7 @@ bool config_save(const config_t *config, const char *filename)
                 OSI_TRACE_DEBUG("save keyname = %s, i = %d, %d\n", keyname, i, CONFIG_FILE_MAX_SIZE);
             }
             if (err != ESP_OK) {
-                nvs_flash_deinit_partition("security");
+                nvs_flash_deinit_partition(security_partition);
                 nvs_close(fp);
                 err_code |= 0x04;
                 goto error;
@@ -470,13 +471,13 @@ bool config_save(const config_t *config, const char *filename)
 
     err = nvs_commit(fp);
     if (err != ESP_OK) {
-        nvs_flash_deinit_partition("security");
+        nvs_flash_deinit_partition(security_partition);
         nvs_close(fp);
         err_code |= 0x08;
         goto error;
     }
 
-    nvs_flash_deinit_partition("security");
+    nvs_flash_deinit_partition(security_partition);
     nvs_close(fp);
     osi_free(line);
     osi_free(buf);
